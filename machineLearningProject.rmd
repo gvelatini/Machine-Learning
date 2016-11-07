@@ -1,0 +1,126 @@
+---
+title: "Execrcise Analysis Using Random Forest Prediction"
+author: "gv"
+date: "November 5, 2016"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+###Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+For this project, six participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. 
+
+
+
+###  Data Pre-Processing
+
+I loaded the test and training data and removed a few uneccessary variables that contained ID and timestamp information.
+
+
+```{r, cache=TRUE, echo=TRUE,message=FALSE, warning=FALSE}
+
+library(AppliedPredictiveModeling)
+library(caret)
+library(pgmm)
+require(ggplot2)
+require(dplyr)
+
+# read in training and test data
+
+inTrain <- read.csv("training.csv", na.strings = c("NA", ""))
+
+inTest <- read.csv("testing.csv", na.strings = c("NA", ""))
+
+# remove first few columns with ID and time information.
+
+inTrain <- inTrain[,7:160]
+inTest <- inTest[,7:160]
+
+
+
+
+```
+
+
+There are several variables that are mostly empty(NA's). For example, the variable "kurtosis_roll_belt" has 19216 missing values. In order to reduce the size of the data set, they have been removed. 
+
+```{r,cache=TRUE, echo=TRUE,warning=FALSE}
+
+#  remove mostly empty variables
+
+sum(is.na(inTrain$kurtosis_roll_belt))
+
+goodCols <- apply(is.na(inTrain),2,sum) < 19200
+
+inTrain <- inTrain[, goodCols]
+
+```
+
+
+Here are the remaining variables.
+
+```{r,cache=TRUE, echo=FALSE, warning=FALSE}
+
+colnames(inTrain)
+```
+
+There are 54 variables remaining, "classe" is the variable we are trying to predict, and the other 53 are potential predictors.
+
+### Model Build Method
+
+####1. Partition the training data
+
+The training data set is quite large with 19622 observations of 54 variables.  I partitioned the training data set, using 30% of the data for model building, and reserving 70% of the training data to be used to estimate the out of sample accuracy.
+
+```{r, cache=TRUE, echo=TRUE,message=FALSE, warning=FALSE}
+
+#  partition training data into smaller data set
+
+partTrain <- createDataPartition(y=inTrain$classe,p=0.3,list=FALSE)
+inTrainSmall <- inTrain[partTrain,] 
+
+# reserve the rest for out of sample accuracy estimation
+valDat <- inTrain[-partTrain,]
+
+```
+
+
+####2. Build a Random Forest model with 3-fold cross validation
+
+I used Random Forest prediction to build a model that predicts the value of the categorical variable "classe".  The caret package in R implements the random forest algorithm and **allows for cross validation at the same time**.  I used "K-fold" cross validation with K=3.
+
+```{r, cache=TRUE, echo=TRUE,message=FALSE, warning=FALSE}
+# create random forest model
+
+modelRF <- train(classe~.,data=inTrainSmall, method="rf", trControl=trainControl(method="cv",number=3), prox=TRUE,allowParallel=TRUE)
+print(modelRF)
+
+print(modelRF$finalModel)
+
+```
+
+
+####3. Estimate the Out of Sample accuracy
+
+I estimated the out of sample accuracy by running the final model on the validation data.
+
+```{r, cache=TRUE, echo=TRUE,message=FALSE, warning=FALSE}
+# estimate test set error rate using validation data
+
+valPred <- predict(modelRF,valDat)
+confusionMatrix(valPred,valDat$classe)
+```
+
+
+
+####4. Conclusion
+
+The prediction accuracy on the validation data is 99.2%, which is very high for out of sample accuracy. This indicates that the model is certainly not "overfitted", and should work very well to predict whether weights were lifted correctly or not.
+
+

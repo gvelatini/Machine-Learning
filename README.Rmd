@@ -1,4 +1,9 @@
-# Machine Learning
+---
+title: "Machine Learning"
+output: 
+  html_document:
+    keep_md: true
+---
 
 ### Machine Learning Course Project For Johns Hopkins Data Science specialization
 
